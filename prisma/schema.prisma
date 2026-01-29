@@ -1,0 +1,245 @@
+// AdFlow - AI-Powered Ad Production Management
+// Prisma Schema - SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Team & Auth
+// ============================================
+
+model TeamMember {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  role          String
+  capacityHours Float    @default(8)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  conceptsCreated  Concept[] @relation("CreatedBy")
+  conceptsApproved Concept[] @relation("ApprovedBy")
+  scriptsApproved  Script[]  @relation("ScriptApprovedBy")
+  tasksAssigned    Task[]
+}
+
+// ============================================
+// Module 1: Ideation
+// ============================================
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  features    String   @default("[]") // JSON array
+  usps        String   @default("[]") // JSON array
+  pricePoint  String?
+  offers      String?
+  imageUrls   String   @default("[]") // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  concepts Concept[]
+}
+
+model ICP {
+  id             String   @id @default(uuid())
+  name           String
+  demographics   String   @default("{}") // JSON object
+  psychographics String   @default("{}") // JSON object
+  painPoints     String   @default("[]") // JSON array
+  aspirations    String   @default("[]") // JSON array
+  buyingTriggers String   @default("[]") // JSON array
+  platforms      String   @default("[]") // JSON array
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  concepts Concept[]
+}
+
+model WinningAd {
+  id               String   @id @default(uuid())
+  name             String
+  source           String
+  sourceUrl        String?
+  format           String
+  platform         String
+  hookType         String
+  performanceNotes String?
+  tags             String   @default("[]") // JSON array
+  createdAt        DateTime @default(now())
+
+  conceptInputs ConceptWinningAd[]
+}
+
+model Concept {
+  id          String   @id @default(uuid())
+  title       String
+  hookType    String
+  hookText    String?
+  angle       String
+  format      String
+  platform    String
+  coreMessage String
+  rationale   String?
+  complexity  String
+  status      String   @default("GENERATED")
+  priority    Int      @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId    String
+  icp          ICP         @relation(fields: [icpId], references: [id], onDelete: Cascade)
+  icpId        String
+  createdBy    TeamMember? @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById  String?
+  approvedBy   TeamMember? @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedById String?
+  approvedAt   DateTime?
+
+  winningAdInputs ConceptWinningAd[]
+  scripts         Script[]
+
+  @@index([status])
+  @@index([productId])
+  @@index([icpId])
+}
+
+model ConceptWinningAd {
+  concept     Concept   @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  conceptId   String
+  winningAd   WinningAd @relation(fields: [winningAdId], references: [id], onDelete: Cascade)
+  winningAdId String
+
+  @@id([conceptId, winningAdId])
+}
+
+// ============================================
+// Module 2: Scripting
+// ============================================
+
+model Script {
+  id           String   @id @default(uuid())
+  version      Int      @default(1)
+  content      String   @default("{}") // JSON object
+  duration     Int
+  aspectRatios String   @default("[]") // JSON array
+  textOverlays String   @default("[]") // JSON array
+  status       String   @default("DRAFT")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  approvedAt   DateTime?
+
+  // Relations
+  concept       Concept     @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  conceptId     String
+  approvedBy    TeamMember? @relation("ScriptApprovedBy", fields: [approvedById], references: [id])
+  approvedById  String?
+  parentVersion Script?     @relation("ScriptVersions", fields: [parentId], references: [id])
+  parentId      String?
+  childVersions Script[]    @relation("ScriptVersions")
+
+  productionReq ProductionRequirement?
+  tasks         Task[]
+
+  @@index([conceptId])
+  @@index([status])
+}
+
+model ProductionRequirement {
+  id             String   @id @default(uuid())
+  locationType   String
+  talentNeeded   String
+  propsRequired  String   @default("[]") // JSON array
+  productSamples Boolean  @default(false)
+  sampleQuantity Int?
+  equipmentNotes String?
+  frameRate      Int      @default(30)
+  audioType      String   @default("[]") // JSON array
+  styleReference String?
+  transitions    String?
+  colorGrade     String?
+  musicStyle     String?
+  deliverables   String   @default("{}") // JSON object
+  createdAt      DateTime @default(now())
+
+  script   Script @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  scriptId String @unique
+}
+
+// ============================================
+// Module 3: Production
+// ============================================
+
+model Task {
+  id            String    @id @default(uuid())
+  type          String
+  status        String    @default("QUEUED")
+  estimatedTime Int
+  actualTime    Int?
+  dueDate       DateTime?
+  scheduledFor  DateTime?
+  notes         String?
+  blockers      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+
+  // Relations
+  script     Script      @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  scriptId   String
+  assignee   TeamMember? @relation(fields: [assigneeId], references: [id])
+  assigneeId String?
+
+  @@index([status])
+  @@index([scriptId])
+  @@index([assigneeId])
+}
+
+// ============================================
+// Libraries
+// ============================================
+
+model HookTemplate {
+  id          String  @id @default(uuid())
+  type        String
+  template    String
+  examples    String  @default("[]") // JSON array
+  performance String?
+}
+
+model FormatTemplate {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  platforms   String @default("[]") // JSON array
+  structure   String @default("{}") // JSON object
+}
+
+model AngleTemplate {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  bestFor     String @default("[]") // JSON array
+}
+
+model ScriptTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  format      String
+  duration    Int
+  structure   String   @default("{}") // JSON object
+  timingGuide String   @default("{}") // JSON object
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now())
+}
