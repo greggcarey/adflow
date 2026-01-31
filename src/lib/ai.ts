@@ -10,9 +10,21 @@ const anthropic = new Anthropic({
 // Concept Generation (US-110)
 // ============================================
 
+interface CompanyProfileContext {
+  name: string;
+  industry: string | null;
+  narrative: string;
+  toneDescription: string | null;
+  toneSamples: string[];
+  values: string[];
+  voiceDos: string[];
+  voiceDonts: string[];
+}
+
 interface ConceptGenerationParams {
   product: Product;
   icp: ICP;
+  companyProfile?: CompanyProfileContext;
   formatPreferences: string[];
   hookTypes: string[];
   anglePreferences: string[];
@@ -26,6 +38,7 @@ export async function generateConcepts(
   const {
     product,
     icp,
+    companyProfile,
     formatPreferences,
     hookTypes,
     anglePreferences,
@@ -36,6 +49,7 @@ export async function generateConcepts(
   const prompt = buildConceptPrompt(
     product,
     icp,
+    companyProfile,
     formatPreferences,
     hookTypes,
     anglePreferences,
@@ -79,6 +93,7 @@ Always respond with valid JSON in the exact format requested.`;
 function buildConceptPrompt(
   product: Product,
   icp: ICP,
+  companyProfile: CompanyProfileContext | undefined,
   formats: string[],
   hooks: string[],
   angles: string[],
@@ -88,8 +103,25 @@ function buildConceptPrompt(
   const demographics = icp.demographics as Record<string, unknown>;
   const psychographics = icp.psychographics as Record<string, unknown>;
 
-  return `Generate ${count} distinct ad concepts for the following product and target audience.
+  let brandSection = "";
+  if (companyProfile) {
+    brandSection = `
+## BRAND CONTEXT
+Company: ${companyProfile.name}
+${companyProfile.industry ? `Industry: ${companyProfile.industry}` : ""}
+Brand Narrative: ${companyProfile.narrative}
+${companyProfile.toneDescription ? `Tone & Voice: ${companyProfile.toneDescription}` : ""}
+${companyProfile.toneSamples.length > 0 ? `Sample Copy Style:\n${companyProfile.toneSamples.map(s => `- "${s}"`).join("\n")}` : ""}
+${companyProfile.values.length > 0 ? `Brand Values: ${companyProfile.values.join(", ")}` : ""}
+${companyProfile.voiceDos.length > 0 ? `Voice Guidelines - DO: ${companyProfile.voiceDos.join("; ")}` : ""}
+${companyProfile.voiceDonts.length > 0 ? `Voice Guidelines - DON'T: ${companyProfile.voiceDonts.join("; ")}` : ""}
 
+IMPORTANT: All concepts must align with this brand voice, values, and tone. The copy style should match the sample copy provided.
+`;
+  }
+
+  return `Generate ${count} distinct ad concepts for the following product and target audience.
+${brandSection}
 ## PRODUCT
 Name: ${product.name}
 Description: ${product.description}
@@ -718,5 +750,153 @@ Base time estimates on complexity: LOW (30min shoot/45min edit), MEDIUM (60min/9
   } catch (error) {
     console.error("Failed to parse production requirements:", error);
     throw new Error("Failed to generate production requirements");
+  }
+}
+
+// ============================================
+// Ad Template Analysis (Library Feature)
+// ============================================
+
+export interface AdTemplateVisualStyle {
+  primaryColors: string[];
+  aesthetic: string;
+  mood: string;
+  hasText: boolean;
+  hasFaces: boolean;
+  hasProduct: boolean;
+}
+
+export interface AdTemplateAnalysis {
+  suggestedName: string;
+  format: string;
+  platform: string;
+  hookType: string;
+  visualStyle: AdTemplateVisualStyle;
+  keyFeatures: string[];
+  callToAction?: string;
+  estimatedDuration?: number;
+  confidence: number;
+}
+
+interface AdTemplateAnalysisParams {
+  imageBase64: string;
+  imageMediaType: string;
+  sourceUrl?: string;
+}
+
+const AD_ANALYSIS_SYSTEM_PROMPT = `You are an expert advertising analyst specializing in digital marketing and performance advertising. You analyze ads to extract key characteristics that define their style and approach.
+
+When analyzing an ad, identify:
+1. A descriptive name that captures the ad's essence (3-6 words)
+2. The ad format (UGC Testimonial, Product Demo, Before/After, Problem-Solution, Unboxing, Tutorial, Lifestyle, Talking Head, Slideshow, Animation)
+3. The target platform based on aspect ratio and style (Meta, TikTok, YouTube, Instagram, Pinterest)
+4. The hook type used (Question, Statement, Controversial, Curiosity, Pain Point, Social Proof, Statistic)
+5. Visual style elements (colors, aesthetic, mood)
+6. Key features that make this ad effective
+7. Any visible call-to-action
+
+Always respond with valid JSON in the exact format requested.`;
+
+export async function analyzeAdTemplate(
+  params: AdTemplateAnalysisParams
+): Promise<AdTemplateAnalysis> {
+  const { imageBase64, imageMediaType, sourceUrl } = params;
+
+  const prompt = `Analyze this advertisement image and extract its key characteristics.
+
+${sourceUrl ? `Source URL: ${sourceUrl}` : ""}
+
+Respond with a JSON object in this exact format:
+{
+  "suggestedName": "A descriptive 3-6 word name for this ad style",
+  "format": "One of: UGC Testimonial, Product Demo, Before/After, Problem-Solution, Unboxing, Tutorial, Lifestyle, Talking Head, Slideshow, Animation",
+  "platform": "One of: Meta, TikTok, YouTube, Instagram, Pinterest",
+  "hookType": "One of: Question, Statement, Controversial, Curiosity, Pain Point, Social Proof, Statistic",
+  "visualStyle": {
+    "primaryColors": ["color1", "color2"],
+    "aesthetic": "modern/minimalist/bold/playful/professional/casual/luxurious/raw",
+    "mood": "energetic/calm/urgent/friendly/serious/inspiring/humorous",
+    "hasText": true/false,
+    "hasFaces": true/false,
+    "hasProduct": true/false
+  },
+  "keyFeatures": ["feature1", "feature2", "feature3"],
+  "callToAction": "The CTA text if visible, or null",
+  "estimatedDuration": null,
+  "confidence": 0.0-1.0
+}`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 2048,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: imageMediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+              data: imageBase64,
+            },
+          },
+          {
+            type: "text",
+            text: prompt,
+          },
+        ],
+      },
+    ],
+    system: AD_ANALYSIS_SYSTEM_PROMPT,
+  });
+
+  const textContent = response.content.find((block) => block.type === "text");
+  if (!textContent || textContent.type !== "text") {
+    throw new Error("No text response from AI");
+  }
+
+  return parseAdAnalysisResponse(textContent.text);
+}
+
+function parseAdAnalysisResponse(response: string): AdTemplateAnalysis {
+  let jsonStr = response;
+
+  const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1];
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr.trim());
+
+    return {
+      suggestedName: String(parsed.suggestedName || "Untitled Ad"),
+      format: String(parsed.format || "Product Demo"),
+      platform: String(parsed.platform || "Meta"),
+      hookType: String(parsed.hookType || "Statement"),
+      visualStyle: {
+        primaryColors: Array.isArray(parsed.visualStyle?.primaryColors)
+          ? parsed.visualStyle.primaryColors.map(String)
+          : [],
+        aesthetic: String(parsed.visualStyle?.aesthetic || "modern"),
+        mood: String(parsed.visualStyle?.mood || "neutral"),
+        hasText: Boolean(parsed.visualStyle?.hasText),
+        hasFaces: Boolean(parsed.visualStyle?.hasFaces),
+        hasProduct: Boolean(parsed.visualStyle?.hasProduct),
+      },
+      keyFeatures: Array.isArray(parsed.keyFeatures)
+        ? parsed.keyFeatures.map(String)
+        : [],
+      callToAction: parsed.callToAction ? String(parsed.callToAction) : undefined,
+      estimatedDuration: parsed.estimatedDuration
+        ? Number(parsed.estimatedDuration)
+        : undefined,
+      confidence: Number(parsed.confidence || 0.7),
+    };
+  } catch (error) {
+    console.error("Failed to parse ad analysis response:", error);
+    console.error("Raw response:", response);
+    throw new Error("Failed to parse AI-generated ad analysis");
   }
 }

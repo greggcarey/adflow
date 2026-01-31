@@ -11,7 +11,79 @@ datasource db {
 }
 
 // ============================================
-// Team & Auth
+// Company Profile
+// ============================================
+
+model CompanyProfile {
+  id              String   @id @default(uuid())
+  name            String
+  industry        String?
+  narrative       String
+  toneDescription String?
+  toneSamples     String   @default("[]")
+  values          String   @default("[]")
+  voiceDos        String   @default("[]")
+  voiceDonts      String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// Auth (NextAuth.js)
+// ============================================
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String?   @unique
+  emailVerified      DateTime?
+  image              String?
+  onboardingComplete Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================
+// Team
 // ============================================
 
 model TeamMember {
@@ -242,4 +314,42 @@ model ScriptTemplate {
   timingGuide String   @default("{}") // JSON object
   tags        String   @default("[]") // JSON array
   createdAt   DateTime @default(now())
+}
+
+// ============================================
+// Ad Templates Library
+// ============================================
+
+model AdTemplate {
+  id           String   @id @default(uuid())
+  name         String                          // AI-generated or user-edited
+  sourceType   String                          // "upload" | "url"
+  sourceUrl    String?                         // Original URL if pasted
+
+  // File storage (Vercel Blob)
+  fileUrl      String?                         // Blob URL for uploaded file
+  thumbnailUrl String?                         // Thumbnail for videos
+  fileType     String                          // "image" | "video"
+  fileMimeType String?                         // e.g., "image/jpeg"
+  fileSize     Int?                            // Bytes
+
+  // AI-extracted metadata
+  format       String                          // e.g., "UGC Testimonial"
+  platform     String                          // "Meta", "TikTok", etc.
+  hookType     String                          // "Question", "Statement", etc.
+  visualStyle  String   @default("{}")         // JSON object
+  keyFeatures  String   @default("[]")         // JSON array
+  aiAnalysis   String   @default("{}")         // Full AI response
+
+  // User fields
+  notes        String?
+  tags         String   @default("[]")         // JSON array
+  isFavorite   Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([format])
+  @@index([platform])
+  @@index([createdAt])
 }

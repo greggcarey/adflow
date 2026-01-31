@@ -6,9 +6,9 @@ import { z } from "zod";
 const generateSchema = z.object({
   productId: z.string().uuid(),
   icpId: z.string().uuid(),
-  formatPreferences: z.array(z.string()),
-  hookTypes: z.array(z.string()),
-  anglePreferences: z.array(z.string()),
+  formatPreferences: z.array(z.string()).optional().default([]),
+  hookTypes: z.array(z.string()).optional().default([]),
+  anglePreferences: z.array(z.string()).optional().default([]),
   trends: z.string().optional(),
   count: z.number().min(1).max(10).default(5),
 });
@@ -18,10 +18,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = generateSchema.parse(body);
 
-    // Fetch product and ICP
-    const [productRaw, icpRaw] = await Promise.all([
+    // Fetch product, ICP, and company profile
+    const [productRaw, icpRaw, companyProfileRaw] = await Promise.all([
       db.product.findUnique({ where: { id: data.productId } }),
       db.iCP.findUnique({ where: { id: data.icpId } }),
+      db.companyProfile.findFirst(),
     ]);
 
     if (!productRaw) {
@@ -50,6 +51,20 @@ export async function POST(request: Request) {
       platforms: JSON.parse(icpRaw.platforms),
     };
 
+    // Parse company profile if exists
+    const companyProfile = companyProfileRaw
+      ? {
+          name: companyProfileRaw.name,
+          industry: companyProfileRaw.industry,
+          narrative: companyProfileRaw.narrative,
+          toneDescription: companyProfileRaw.toneDescription,
+          toneSamples: JSON.parse(companyProfileRaw.toneSamples),
+          values: JSON.parse(companyProfileRaw.values),
+          voiceDos: JSON.parse(companyProfileRaw.voiceDos),
+          voiceDonts: JSON.parse(companyProfileRaw.voiceDonts),
+        }
+      : undefined;
+
     // Check for API key
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
@@ -62,6 +77,7 @@ export async function POST(request: Request) {
     const generatedConcepts = await generateConcepts({
       product,
       icp,
+      companyProfile,
       formatPreferences: data.formatPreferences,
       hookTypes: data.hookTypes,
       anglePreferences: data.anglePreferences,

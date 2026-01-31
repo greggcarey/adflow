@@ -14,6 +14,8 @@ import {
   Users,
   Sparkles,
   ClipboardList,
+  Settings,
+  Image,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -58,7 +60,15 @@ const navItems = [
     title: "Library",
     href: "/library",
     icon: Library,
-    disabled: true,
+    children: [
+      { title: "Overview", href: "/library", icon: Library },
+      { title: "Ad Templates", href: "/library/templates", icon: Image },
+    ],
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
   },
 ];
 
