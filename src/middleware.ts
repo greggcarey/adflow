@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicRoutes = ["/login", "/api/debug-env"];
+const publicRoutes = ["/login"];
 const authRoutes = ["/api/auth"];
 
 export function middleware(request: NextRequest) {
@@ -37,6 +37,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/debug-env|.*\\.png$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)",
   ],
 };
