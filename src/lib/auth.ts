@@ -23,11 +23,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      console.log("SignIn callback:", { userId: user?.id, provider: account?.provider });
+      return true;
+    },
     async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).onboardingComplete = (user as any).onboardingComplete ?? false;
+      try {
+        if (session.user) {
+          session.user.id = user.id;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (session.user as any).onboardingComplete = (user as any).onboardingComplete ?? false;
+        }
+      } catch (error) {
+        console.error("Session callback error:", error);
       }
       return session;
     },
