@@ -1,37 +1,169 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AdFlow
+
+AI-powered ad production management platform built with Next.js, Prisma, and Claude AI.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js v5
+- **AI**: Anthropic Claude API
+- **File Storage**: Vercel Blob
+- **UI**: shadcn/ui + Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL database
+- Anthropic API key
+- Google OAuth credentials (for authentication)
+
+### Environment Variables
+
+Create a `.env` file with:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Database
+DATABASE_URL="postgresql://..."
+
+# Authentication
+AUTH_SECRET="your-auth-secret"
+AUTH_GOOGLE_ID="your-google-client-id"
+AUTH_GOOGLE_SECRET="your-google-client-secret"
+
+# AI
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# File Storage (optional, for Ad Templates feature)
+BLOB_READ_WRITE_TOKEN="your-vercel-blob-token"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Generate Prisma client
+npm run db:generate
 
-## Learn More
+# Push schema to database
+npm run db:push
 
-To learn more about Next.js, take a look at the following resources:
+# Seed sample data (optional)
+npm run db:seed
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start development server
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-## Deploy on Vercel
+## Database Commands
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run db:generate  # Generate Prisma client
+npm run db:push      # Push schema changes to database
+npm run db:migrate   # Create and run migrations
+npm run db:studio    # Open Prisma Studio
+npm run db:seed      # Seed sample data
+npm run db:reset     # Reset database
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
 
+### Vercel Deployment
+
+1. Connect your GitHub repository to Vercel
+2. Add a Vercel Postgres database (Storage > Create Database > Postgres)
+3. Add environment variables in Project Settings:
+   - `AUTH_SECRET`
+   - `AUTH_GOOGLE_ID`
+   - `AUTH_GOOGLE_SECRET`
+   - `ANTHROPIC_API_KEY`
+   - `BLOB_READ_WRITE_TOKEN` (if using Ad Templates)
+4. Deploy
+
+### Troubleshooting Vercel Builds
+
+#### "Failed to collect page data" Error
+
+If the build fails with errors like:
+```
+Error: Failed to collect page data for /api/ai/generate-concepts
+```
+
+**Cause**: Prisma client not generated before Next.js build.
+
+**Solution**: Ensure `package.json` includes:
+```json
+{
+  "scripts": {
+    "postinstall": "prisma generate",
+    "build": "prisma generate && next build"
+  }
+}
+```
+
+#### TypeScript Errors with Prisma Types
+
+When using Prisma with JSON fields stored as strings (for SQLite/Postgres compatibility):
+
+1. API routes should parse JSON strings before returning:
+   ```typescript
+   const parsed = {
+     ...dbRecord,
+     features: JSON.parse(dbRecord.features),
+   };
+   ```
+
+2. Client components should use custom types for API responses, not Prisma types:
+   ```typescript
+   // Don't use: import type { Product } from "@prisma/client"
+   // Instead define response types with parsed fields
+   type ProductResponse = {
+     features: string[];  // parsed array, not string
+   };
+   ```
+
+#### Zod Schema Errors
+
+If using Zod v4+, `z.record()` requires a key type:
+```typescript
+// Old (Zod v3):
+z.record(z.unknown())
+
+// New (Zod v4+):
+z.record(z.string(), z.unknown())
+```
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (dashboard)/     # Main app pages (protected)
+│   ├── (onboarding)/    # Onboarding flow
+│   ├── api/             # API routes
+│   └── login/           # Auth pages
+├── components/
+│   ├── layout/          # Sidebar, Header
+│   ├── templates/       # Ad Templates components
+│   └── ui/              # shadcn/ui components
+├── lib/
+│   ├── ai.ts            # Claude AI functions
+│   ├── auth.ts          # NextAuth config
+│   ├── db.ts            # Prisma client
+│   └── utils.ts         # Utilities
+└── types/               # TypeScript types
+```
+
+## Features
+
+- **Ideation**: Generate AI-powered ad concepts from products and ICPs
+- **Scripting**: Auto-generate video ad scripts from approved concepts
+- **Production**: Task management for video production
+- **Library**: Store and analyze reference ads with AI
+- **Settings**: Company profile and brand voice configuration
