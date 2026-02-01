@@ -139,6 +139,52 @@ z.record(z.unknown())
 z.record(z.string(), z.unknown())
 ```
 
+### Troubleshooting Google OAuth
+
+#### "invalid_client" Error
+
+**Cause**: `AUTH_GOOGLE_ID` or `AUTH_GOOGLE_SECRET` is incorrect.
+
+**Solution**:
+1. Go to Google Cloud Console → APIs & Services → Credentials
+2. Copy fresh values from your OAuth 2.0 Client ID
+3. Update Vercel environment variables and redeploy
+
+#### "redirect_uri_mismatch" Error
+
+**Cause**: The callback URL isn't registered in Google Cloud Console.
+
+**Solution**: Add this to your OAuth client's Authorized redirect URIs:
+```
+https://your-domain.vercel.app/api/auth/callback/google
+```
+
+**Important**: Always use your production URL (e.g., `adflow-sable.vercel.app`), not preview URLs.
+
+#### "MissingSecret" Error
+
+**Cause**: `AUTH_SECRET` not set in environment variables.
+
+**Solution**: Generate a secret and add to Vercel:
+```bash
+openssl rand -base64 32
+```
+Add as `AUTH_SECRET` in Vercel environment variables.
+
+#### Google OAuth "Testing" Mode
+
+If your OAuth consent screen is in "Testing" mode:
+1. Go to Google Cloud Console → APIs & Services → OAuth consent screen → Audience
+2. Add your email as a Test user
+3. Or click "Publish App" for production use
+
+#### Database Tables Missing
+
+After first deploy, push the schema to your production database:
+```bash
+DATABASE_URL="your-vercel-postgres-url" npx prisma db push
+```
+
 ## Project Structure
 
 ```
