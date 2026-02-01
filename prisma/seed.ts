@@ -1,13 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
 
-// Use direct TCP connection for seeding
-const pool = new pg.Pool({
-  connectionString: "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable",
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
   console.log("Seeding database...");
@@ -77,10 +70,16 @@ async function main() {
   ];
 
   for (const hook of hookTemplates) {
+    const data = {
+      type: hook.type,
+      template: hook.template,
+      examples: JSON.stringify(hook.examples),
+      performance: hook.performance,
+    };
     await prisma.hookTemplate.upsert({
       where: { id: hook.type.toLowerCase() },
-      update: hook,
-      create: { id: hook.type.toLowerCase(), ...hook },
+      update: data,
+      create: { id: hook.type.toLowerCase(), ...data },
     });
   }
   console.log(`Seeded ${hookTemplates.length} hook templates`);
@@ -171,10 +170,17 @@ async function main() {
   ];
 
   for (const format of formatTemplates) {
+    const data = {
+      id: format.id,
+      name: format.name,
+      description: format.description,
+      platforms: JSON.stringify(format.platforms),
+      structure: JSON.stringify(format.structure),
+    };
     await prisma.formatTemplate.upsert({
       where: { id: format.id },
-      update: format,
-      create: format,
+      update: data,
+      create: data,
     });
   }
   console.log(`Seeded ${formatTemplates.length} format templates`);
@@ -226,79 +232,89 @@ async function main() {
   ];
 
   for (const angle of angleTemplates) {
+    const data = {
+      id: angle.id,
+      name: angle.name,
+      description: angle.description,
+      bestFor: JSON.stringify(angle.bestFor),
+    };
     await prisma.angleTemplate.upsert({
       where: { id: angle.id },
-      update: angle,
-      create: angle,
+      update: data,
+      create: data,
     });
   }
   console.log(`Seeded ${angleTemplates.length} angle templates`);
 
   // Seed a sample product and ICP for testing
+  const sampleProductData = {
+    id: "sample-product",
+    name: "SleepWell Pro",
+    description:
+      "A revolutionary sleep tracking device that uses advanced sensors to monitor your sleep patterns and provide personalized recommendations for better rest.",
+    features: JSON.stringify([
+      "Advanced sleep tracking",
+      "Smart alarm",
+      "Sleep score",
+      "Personalized insights",
+      "7-day battery life",
+    ]),
+    usps: JSON.stringify([
+      "Most accurate sleep tracker on the market",
+      "AI-powered recommendations",
+      "Non-invasive wearable design",
+    ]),
+    pricePoint: "$149",
+    offers: "Free 30-day trial",
+    imageUrls: JSON.stringify([]),
+  };
+
   const sampleProduct = await prisma.product.upsert({
     where: { id: "sample-product" },
     update: {},
-    create: {
-      id: "sample-product",
-      name: "SleepWell Pro",
-      description:
-        "A revolutionary sleep tracking device that uses advanced sensors to monitor your sleep patterns and provide personalized recommendations for better rest.",
-      features: [
-        "Advanced sleep tracking",
-        "Smart alarm",
-        "Sleep score",
-        "Personalized insights",
-        "7-day battery life",
-      ],
-      usps: [
-        "Most accurate sleep tracker on the market",
-        "AI-powered recommendations",
-        "Non-invasive wearable design",
-      ],
-      pricePoint: "$149",
-      offers: "Free 30-day trial",
-      imageUrls: [],
-    },
+    create: sampleProductData,
   });
   console.log(`Seeded sample product: ${sampleProduct.name}`);
+
+  const sampleICPData = {
+    id: "sample-icp",
+    name: "Busy Professionals",
+    demographics: JSON.stringify({
+      ageRange: "28-45",
+      gender: "All",
+      location: "Urban areas, US",
+      income: "$75,000-$150,000",
+    }),
+    psychographics: JSON.stringify({
+      interests: ["Health & wellness", "Productivity", "Technology", "Self-improvement"],
+      values: ["Efficiency", "Health", "Work-life balance"],
+      lifestyle: "Fast-paced, career-focused, health-conscious",
+    }),
+    painPoints: JSON.stringify([
+      "Difficulty falling asleep",
+      "Waking up tired despite sleeping",
+      "Inconsistent sleep schedule",
+      "Stress affecting sleep quality",
+    ]),
+    aspirations: JSON.stringify([
+      "Wake up feeling refreshed",
+      "Have more energy during the day",
+      "Optimize performance",
+      "Better work-life balance",
+    ]),
+    buyingTriggers: JSON.stringify([
+      "Poor sleep affecting work performance",
+      "Health scare or wake-up call",
+      "New Year's resolutions",
+      "Recommendation from trusted source",
+    ]),
+    platforms: JSON.stringify(["Meta", "YouTube", "LinkedIn"]),
+  };
 
   const sampleICP = await prisma.iCP.upsert({
     where: { id: "sample-icp" },
     update: {},
-    create: {
-      id: "sample-icp",
-      name: "Busy Professionals",
-      demographics: {
-        ageRange: "28-45",
-        gender: "All",
-        location: "Urban areas, US",
-        income: "$75,000-$150,000",
-      },
-      psychographics: {
-        interests: ["Health & wellness", "Productivity", "Technology", "Self-improvement"],
-        values: ["Efficiency", "Health", "Work-life balance"],
-        lifestyle: "Fast-paced, career-focused, health-conscious",
-      },
-      painPoints: [
-        "Difficulty falling asleep",
-        "Waking up tired despite sleeping",
-        "Inconsistent sleep schedule",
-        "Stress affecting sleep quality",
-      ],
-      aspirations: [
-        "Wake up feeling refreshed",
-        "Have more energy during the day",
-        "Optimize performance",
-        "Better work-life balance",
-      ],
-      buyingTriggers: [
-        "Poor sleep affecting work performance",
-        "Health scare or wake-up call",
-        "New Year's resolutions",
-        "Recommendation from trusted source",
-      ],
-      platforms: ["Meta", "YouTube", "LinkedIn"],
-    },
+    create: sampleICPData,
   });
   console.log(`Seeded sample ICP: ${sampleICP.name}`);
 

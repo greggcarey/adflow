@@ -98,13 +98,14 @@ export async function POST(request: Request) {
     });
 
     // Generate production requirements
+    // Use unknown cast since script types don't perfectly align between DB and AI types
     const productionReqs = await generateProductionRequirements({
       script: {
         ...savedScript,
         content: generatedScript.content,
         aspectRatios: generatedScript.aspectRatios,
         textOverlays: generatedScript.textOverlays,
-      } as Parameters<typeof generateProductionRequirements>[0]["script"],
+      } as unknown as Parameters<typeof generateProductionRequirements>[0]["script"],
       concept,
       product,
     });

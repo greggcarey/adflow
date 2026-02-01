@@ -268,19 +268,24 @@ export default function ScriptsPage() {
                       <div>
                         <h4 className="font-medium mb-3">Script Sections</h4>
                         <div className="space-y-3 text-sm">
-                          {Object.entries(script.content).map(([key, section]) => (
-                            <div key={key} className="border rounded p-3">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {(section as { startTime: number; endTime: number }).startTime}s - {(section as { startTime: number; endTime: number }).endTime}s
-                                </span>
+                          {Object.entries(script.content).map(([key, section]) => {
+                            const s = section as { spokenText?: string; startTime?: number; endTime?: number };
+                            return (
+                              <div key={key} className="border rounded p-3">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                  {s.startTime !== undefined && s.endTime !== undefined && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {s.startTime}s - {s.endTime}s
+                                    </span>
+                                  )}
+                                </div>
+                                {s.spokenText && (
+                                  <p className="text-muted-foreground">{s.spokenText}</p>
+                                )}
                               </div>
-                              <p className="text-muted-foreground">
-                                {(section as { spokenText: string }).spokenText}
-                              </p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
 

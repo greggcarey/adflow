@@ -48,7 +48,8 @@ export async function POST(request: Request) {
     });
 
     // Update the script content with the revised section
-    const currentContent = script.content as Record<string, unknown>;
+    // Parse JSON string from database
+    const currentContent = JSON.parse(script.content) as Record<string, unknown>;
     const updatedContent = {
       ...currentContent,
       [data.sectionToRevise]: revisedSection,
@@ -59,10 +60,10 @@ export async function POST(request: Request) {
       data: {
         conceptId: script.conceptId,
         version: script.version + 1,
-        content: updatedContent as object,
+        content: JSON.stringify(updatedContent),
         duration: script.duration,
         aspectRatios: script.aspectRatios,
-        textOverlays: script.textOverlays as object[],
+        textOverlays: script.textOverlays,
         status: "DRAFT",
         parentId: script.id,
       },

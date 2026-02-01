@@ -90,9 +90,29 @@ When generating concepts, you:
 
 Always respond with valid JSON in the exact format requested.`;
 
+// Types for parsed data passed from API routes
+interface ParsedProduct {
+  name: string;
+  description: string;
+  features: string[];
+  usps: string[];
+  pricePoint: string | null;
+  offers: string | null;
+}
+
+interface ParsedICP {
+  name: string;
+  demographics: Record<string, unknown>;
+  psychographics: Record<string, unknown>;
+  painPoints: string[];
+  aspirations: string[];
+  buyingTriggers: string[];
+  platforms: string[];
+}
+
 function buildConceptPrompt(
-  product: Product,
-  icp: ICP,
+  productRaw: Product,
+  icpRaw: ICP,
   companyProfile: CompanyProfileContext | undefined,
   formats: string[],
   hooks: string[],
@@ -100,8 +120,11 @@ function buildConceptPrompt(
   trends: string | undefined,
   count: number
 ): string {
-  const demographics = icp.demographics as Record<string, unknown>;
-  const psychographics = icp.psychographics as Record<string, unknown>;
+  // API routes pass parsed JSON objects, so cast to proper types
+  const product = productRaw as unknown as ParsedProduct;
+  const icp = icpRaw as unknown as ParsedICP;
+  const demographics = icp.demographics;
+  const psychographics = icp.psychographics;
 
   let brandSection = "";
   if (companyProfile) {
@@ -223,7 +246,10 @@ interface ConceptRegenerationParams {
 export async function regenerateConcept(
   params: ConceptRegenerationParams
 ): Promise<GeneratedConcept> {
-  const { concept, product, icp, feedback } = params;
+  const { concept, feedback } = params;
+  // API routes pass parsed JSON objects, so cast to proper types
+  const product = params.product as unknown as ParsedProduct;
+  const icp = params.icp as unknown as ParsedICP;
 
   const prompt = `You previously generated this ad concept:
 
@@ -355,14 +381,17 @@ Always respond with valid JSON in the exact format requested.`;
 
 function buildScriptPrompt(
   concept: Concept,
-  product: Product,
-  icp: ICP,
+  productRaw: Product,
+  icpRaw: ICP,
   duration: number,
   aspectRatios: string[],
   platform: string,
   templateStructure?: Record<string, unknown>
 ): string {
-  const demographics = icp.demographics as Record<string, unknown>;
+  // API routes pass parsed JSON objects, so cast to proper types
+  const product = productRaw as unknown as ParsedProduct;
+  const icp = icpRaw as unknown as ParsedICP;
+  const demographics = icp.demographics;
 
   return `Write a complete video ad script based on this approved concept.
 
@@ -565,7 +594,10 @@ export async function reviseScriptSection(
 ): Promise<ScriptSection> {
   const { script, concept, product, sectionToRevise, feedback } = params;
 
-  const scriptContent = script.content as Record<string, unknown>;
+  // script.content is a JSON string from the database, but callers may pass parsed data
+  const scriptContent = (typeof script.content === 'string'
+    ? JSON.parse(script.content)
+    : script.content) as Record<string, unknown>;
   const currentSection = scriptContent[sectionToRevise] as Record<string, unknown>;
 
   const prompt = `You need to revise a specific section of a video ad script.
@@ -654,10 +686,19 @@ export interface GeneratedProductionRequirements {
   estimatedEditingTime: number; // minutes
 }
 
+// Type for parsed script data
+interface ParsedScript {
+  content: Record<string, unknown>;
+  duration: number;
+  aspectRatios: string[];
+}
+
 export async function generateProductionRequirements(
   params: ProductionRequirementsParams
 ): Promise<GeneratedProductionRequirements> {
-  const { script, concept, product } = params;
+  const { concept, product } = params;
+  // Callers pass scripts with parsed fields, so cast appropriately
+  const script = params.script as unknown as ParsedScript;
 
   const prompt = `Analyze this video ad script and generate detailed production requirements.
 

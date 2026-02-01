@@ -24,13 +24,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
-import type { Product } from "@prisma/client";
+
+// Type for API response (with parsed JSON fields)
+type ProductResponse = {
+  id: string;
+  name: string;
+  description: string;
+  features: string[];
+  usps: string[];
+  pricePoint: string | null;
+  offers: string | null;
+  imageUrls: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductResponse | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -70,7 +83,7 @@ export default function ProductsPage() {
     setEditingProduct(null);
   }
 
-  function openEditDialog(product: Product) {
+  function openEditDialog(product: ProductResponse) {
     setEditingProduct(product);
     setFormData({
       name: product.name,

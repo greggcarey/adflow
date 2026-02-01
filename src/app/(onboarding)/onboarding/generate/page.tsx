@@ -7,14 +7,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Package, Users, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import type { Product, ICP } from "@prisma/client";
+
+// Types for API responses (with parsed JSON fields)
+type ProductResponse = {
+  id: string;
+  name: string;
+  description: string;
+  features: string[];
+  usps: string[];
+  pricePoint: string | null;
+  offers: string | null;
+  imageUrls: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ICPResponse = {
+  id: string;
+  name: string;
+  demographics: {
+    ageRange: string;
+    gender: string;
+    location: string;
+    income: string;
+  };
+  psychographics: {
+    interests: string[];
+    values: string[];
+    lifestyle: string;
+  };
+  painPoints: string[];
+  aspirations: string[];
+  buyingTriggers: string[];
+  platforms: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export default function OnboardingGeneratePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [icp, setICP] = useState<ICP | null>(null);
+  const [product, setProduct] = useState<ProductResponse | null>(null);
+  const [icp, setICP] = useState<ICPResponse | null>(null);
 
   useEffect(() => {
     async function fetchData() {

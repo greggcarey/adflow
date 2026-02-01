@@ -3,9 +3,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { db } from "@/lib/db";
+import type { Adapter } from "next-auth/adapters";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(db) as Adapter,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
@@ -23,8 +24,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
-        // @ts-expect-error - onboardingComplete is a custom field
-        session.user.onboardingComplete = user.onboardingComplete ?? false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).onboardingComplete = (user as any).onboardingComplete ?? false;
       }
       return session;
     },

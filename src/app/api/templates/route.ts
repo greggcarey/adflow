@@ -14,9 +14,9 @@ const createTemplateSchema = z.object({
   format: z.string().min(1),
   platform: z.string().min(1),
   hookType: z.string().min(1),
-  visualStyle: z.record(z.unknown()).optional().default({}),
+  visualStyle: z.record(z.string(), z.unknown()).optional().default({}),
   keyFeatures: z.array(z.string()).optional().default([]),
-  aiAnalysis: z.record(z.unknown()).optional().default({}),
+  aiAnalysis: z.record(z.string(), z.unknown()).optional().default({}),
   notes: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 });

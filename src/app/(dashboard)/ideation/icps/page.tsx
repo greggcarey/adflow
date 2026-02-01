@@ -25,15 +25,37 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
-import type { ICP } from "@prisma/client";
+
+// Type for API response (with parsed JSON fields)
+type ICPResponse = {
+  id: string;
+  name: string;
+  demographics: {
+    ageRange: string;
+    gender: string;
+    location: string;
+    income: string;
+  };
+  psychographics: {
+    interests: string[];
+    values: string[];
+    lifestyle: string;
+  };
+  painPoints: string[];
+  aspirations: string[];
+  buyingTriggers: string[];
+  platforms: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 const PLATFORM_OPTIONS = ["Meta", "TikTok", "YouTube", "LinkedIn", "Twitter"];
 
 export default function ICPsPage() {
-  const [icps, setICPs] = useState<ICP[]>([]);
+  const [icps, setICPs] = useState<ICPResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingICP, setEditingICP] = useState<ICP | null>(null);
+  const [editingICP, setEditingICP] = useState<ICPResponse | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -85,24 +107,17 @@ export default function ICPsPage() {
     setEditingICP(null);
   }
 
-  function openEditDialog(icp: ICP) {
-    const demographics = icp.demographics as Record<string, string>;
-    const psychographics = icp.psychographics as {
-      interests: string[];
-      values: string[];
-      lifestyle: string;
-    };
-
+  function openEditDialog(icp: ICPResponse) {
     setEditingICP(icp);
     setFormData({
       name: icp.name,
-      ageRange: demographics.ageRange || "",
-      gender: demographics.gender || "",
-      location: demographics.location || "",
-      income: demographics.income || "",
-      interests: psychographics.interests?.join("\n") || "",
-      values: psychographics.values?.join("\n") || "",
-      lifestyle: psychographics.lifestyle || "",
+      ageRange: icp.demographics.ageRange || "",
+      gender: icp.demographics.gender || "",
+      location: icp.demographics.location || "",
+      income: icp.demographics.income || "",
+      interests: icp.psychographics.interests?.join("\n") || "",
+      values: icp.psychographics.values?.join("\n") || "",
+      lifestyle: icp.psychographics.lifestyle || "",
       painPoints: icp.painPoints.join("\n"),
       aspirations: icp.aspirations.join("\n"),
       buyingTriggers: icp.buyingTriggers.join("\n"),
@@ -421,16 +436,11 @@ export default function ICPsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {icps.map((icp) => {
-                    const demographics = icp.demographics as Record<
-                      string,
-                      string
-                    >;
-                    return (
+                  {icps.map((icp) => (
                       <TableRow key={icp.id}>
                         <TableCell className="font-medium">{icp.name}</TableCell>
                         <TableCell>
-                          {demographics.ageRange}, {demographics.gender}
+                          {icp.demographics.ageRange}, {icp.demographics.gender}
                         </TableCell>
                         <TableCell>{icp.painPoints.length} pain points</TableCell>
                         <TableCell>
@@ -464,8 +474,7 @@ export default function ICPsPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
+                    ))}
                 </TableBody>
               </Table>
             )}

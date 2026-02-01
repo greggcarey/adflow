@@ -18,7 +18,43 @@ import {
 import { Sparkles, Package, Users, ArrowRight, ArrowLeft, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AD_FORMATS, HOOK_TYPES, ANGLES, PLATFORMS } from "@/lib/constants";
-import type { Product, ICP, Concept } from "@prisma/client";
+import type { Concept } from "@prisma/client";
+
+// Types for API responses (with parsed JSON fields)
+type ProductResponse = {
+  id: string;
+  name: string;
+  description: string;
+  features: string[];
+  usps: string[];
+  pricePoint: string | null;
+  offers: string | null;
+  imageUrls: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ICPResponse = {
+  id: string;
+  name: string;
+  demographics: {
+    ageRange: string;
+    gender: string;
+    location: string;
+    income: string;
+  };
+  psychographics: {
+    interests: string[];
+    values: string[];
+    lifestyle: string;
+  };
+  painPoints: string[];
+  aspirations: string[];
+  buyingTriggers: string[];
+  platforms: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 type Step = "product" | "icp" | "preferences" | "generate" | "results";
 
@@ -34,8 +70,8 @@ export default function GenerateConceptsPage() {
   const [generating, setGenerating] = useState(false);
 
   // Data
-  const [products, setProducts] = useState<Product[]>([]);
-  const [icps, setICPs] = useState<ICP[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [icps, setICPs] = useState<ICPResponse[]>([]);
   const [generatedConcepts, setGeneratedConcepts] = useState<ConceptWithRelations[]>([]);
 
   // Form state

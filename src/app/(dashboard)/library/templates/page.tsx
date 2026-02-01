@@ -127,16 +127,15 @@ export default function TemplatesPage() {
       <Header
         title="Ad Templates"
         description="Your library of reference ads with AI-extracted insights"
-      >
-        <Button onClick={() => setUploadDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Template
-        </Button>
-      </Header>
+      />
 
       <div className="p-6">
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6">
+          <Button onClick={() => setUploadDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Template
+          </Button>
           <div className="flex-1 min-w-[200px] max-w-sm">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

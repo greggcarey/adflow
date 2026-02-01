@@ -8,7 +8,7 @@ const updateTemplateSchema = z.object({
   format: z.string().min(1).optional(),
   platform: z.string().min(1).optional(),
   hookType: z.string().min(1).optional(),
-  visualStyle: z.record(z.unknown()).optional(),
+  visualStyle: z.record(z.string(), z.unknown()).optional(),
   keyFeatures: z.array(z.string()).optional(),
   notes: z.string().optional().nullable(),
   tags: z.array(z.string()).optional(),

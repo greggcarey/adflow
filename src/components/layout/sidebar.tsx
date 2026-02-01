@@ -112,13 +112,11 @@ export function Sidebar() {
                     <>
                       <button
                         onClick={() => toggleExpand(item.title)}
-                        disabled={item.disabled}
                         className={cn(
                           "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           isActive
                             ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                          item.disabled && "cursor-not-allowed opacity-50"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         )}
                       >
                         <span className="flex items-center gap-3">
@@ -132,7 +130,7 @@ export function Sidebar() {
                           )}
                         />
                       </button>
-                      {isExpanded && !item.disabled && (
+                      {isExpanded && (
                         <ul className="ml-4 mt-1 space-y-1 border-l pl-4">
                           {item.children.map((child) => {
                             const isChildActive = pathname === child.href;
@@ -158,22 +156,16 @@ export function Sidebar() {
                     </>
                   ) : (
                     <Link
-                      href={item.disabled ? "#" : item.href}
+                      href={item.href}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive
                           ? "bg-accent text-accent-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                        item.disabled && "cursor-not-allowed opacity-50"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       )}
                     >
                       <item.icon className="h-5 w-5" />
                       {item.title}
-                      {item.disabled && (
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          Soon
-                        </span>
-                      )}
                     </Link>
                   )}
                 </li>
