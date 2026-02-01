@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import type { Adapter } from "next-auth/adapters";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
   adapter: PrismaAdapter(db) as Adapter,
   providers: [
     Google({
