@@ -24,11 +24,13 @@ const navItems = [
     title: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
+    dataTour: "nav-dashboard",
   },
   {
     title: "Ideation",
     href: "/ideation",
     icon: Lightbulb,
+    dataTour: "nav-ideation",
     children: [
       { title: "Overview", href: "/ideation", icon: Lightbulb },
       { title: "Products", href: "/ideation/products", icon: Package },
@@ -41,6 +43,7 @@ const navItems = [
     title: "Scripting",
     href: "/scripting",
     icon: FileText,
+    dataTour: "nav-scripting",
     children: [
       { title: "Overview", href: "/scripting", icon: FileText },
       { title: "Scripts", href: "/scripting/scripts", icon: ClipboardList },
@@ -50,6 +53,7 @@ const navItems = [
     title: "Production",
     href: "/production",
     icon: Video,
+    dataTour: "nav-production",
     children: [
       { title: "Overview", href: "/production", icon: Video },
       { title: "Tasks", href: "/production/tasks", icon: ClipboardList },
@@ -60,6 +64,7 @@ const navItems = [
     title: "Library",
     href: "/library",
     icon: Library,
+    dataTour: "nav-library",
     children: [
       { title: "Overview", href: "/library", icon: Library },
       { title: "Ad Templates", href: "/library/templates", icon: Image },
@@ -69,6 +74,7 @@ const navItems = [
     title: "Settings",
     href: "/settings",
     icon: Settings,
+    dataTour: "nav-settings",
   },
 ];
 
@@ -112,6 +118,7 @@ export function Sidebar() {
                     <>
                       <button
                         onClick={() => toggleExpand(item.title)}
+                        data-tour={item.dataTour}
                         className={cn(
                           "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           isActive
@@ -157,6 +164,7 @@ export function Sidebar() {
                   ) : (
                     <Link
                       href={item.href}
+                      data-tour={item.dataTour}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive

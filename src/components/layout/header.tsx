@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Search, LogOut, Settings, User } from "lucide-react";
+import { Bell, Search, LogOut, Settings, User, HelpCircle } from "lucide-react";
+import { useTour } from "@/components/tutorial";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +22,7 @@ interface HeaderProps {
 
 export function Header({ title, description }: HeaderProps) {
   const { data: session } = useSession();
+  const { startTour } = useTour();
 
   const userInitials = session?.user?.name
     ?.split(" ")
@@ -86,6 +88,10 @@ export function Header({ title, description }: HeaderProps) {
             <DropdownMenuItem disabled>
               <Settings className="mr-2 h-4 w-4" />
               Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={startTour}>
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Restart Tutorial
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>

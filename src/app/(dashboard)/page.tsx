@@ -43,7 +43,7 @@ export default async function DashboardPage() {
 
       <div className="p-6 space-y-6">
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div data-tour="dashboard" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <Card>
+        <Card data-tour="quick-actions">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>

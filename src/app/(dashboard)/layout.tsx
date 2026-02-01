@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { Sidebar } from "@/components/layout/sidebar";
+import { DashboardClient } from "@/components/layout/dashboard-client";
 
 export default async function DashboardLayout({
   children,
@@ -9,17 +8,12 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
 
-  // Redirect to onboarding if not complete
-  if (session?.user && !session.user.onboardingComplete) {
-    redirect("/welcome");
-  }
+  // Check if we should auto-start the tutorial for new users
+  const shouldAutoStartTour = session?.user && !session.user.onboardingComplete;
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 ml-64">
-        {children}
-      </main>
-    </div>
+    <DashboardClient shouldAutoStartTour={!!shouldAutoStartTour}>
+      {children}
+    </DashboardClient>
   );
 }
