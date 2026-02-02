@@ -19,8 +19,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FileText, Plus, Clock, Loader2 } from "lucide-react";
+import { FileText, Plus, Clock, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
+import { SendToProductionDialog } from "@/components/scripts/send-to-production-dialog";
 
 interface Concept {
   id: string;
@@ -68,6 +69,8 @@ export default function ScriptsPage() {
   const [selectedConcept, setSelectedConcept] = useState<string>("");
   const [duration, setDuration] = useState("30");
   const [expandedScript, setExpandedScript] = useState<string | null>(null);
+  const [productionDialogOpen, setProductionDialogOpen] = useState(false);
+  const [selectedScriptForProduction, setSelectedScriptForProduction] = useState<Script | null>(null);
 
   useEffect(() => {
     fetchScripts();
@@ -138,6 +141,11 @@ export default function ScriptsPage() {
     IN_PRODUCTION: "bg-purple-100 text-purple-800",
     COMPLETED: "bg-gray-100 text-gray-800",
   };
+
+  function handleSendToProduction(script: Script) {
+    setSelectedScriptForProduction(script);
+    setProductionDialogOpen(true);
+  }
 
   return (
     <>
@@ -263,6 +271,20 @@ export default function ScriptsPage() {
                 </CardHeader>
                 {expandedScript === script.id && (
                   <CardContent className="border-t pt-4">
+                    {/* Action Buttons */}
+                    {script.status === "APPROVED" && (
+                      <div className="mb-4">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendToProduction(script);
+                          }}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          Send to Production
+                        </Button>
+                      </div>
+                    )}
                     <div className="grid md:grid-cols-2 gap-6">
                       {/* Script Content */}
                       <div>
@@ -327,6 +349,17 @@ export default function ScriptsPage() {
           </div>
         )}
       </div>
+
+      {/* Send to Production Dialog */}
+      {selectedScriptForProduction && (
+        <SendToProductionDialog
+          open={productionDialogOpen}
+          onOpenChange={setProductionDialogOpen}
+          scriptId={selectedScriptForProduction.id}
+          scriptTitle={selectedScriptForProduction.concept.title}
+          onSuccess={fetchScripts}
+        />
+      )}
     </>
   );
 }
