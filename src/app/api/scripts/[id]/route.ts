@@ -110,6 +110,12 @@ export async function PUT(
           aspectRatios: script.aspectRatios,
           productionReq: script.productionReq,
         });
+        // Update script status to IN_PRODUCTION after creating tasks
+        await db.script.update({
+          where: { id },
+          data: { status: "IN_PRODUCTION" },
+        });
+        script.status = "IN_PRODUCTION";
       }
     }
 

@@ -19,7 +19,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FileText, Plus, Clock, Loader2, Send } from "lucide-react";
+import { FileText, Plus, Clock, Loader2, Send, CheckCircle, RotateCcw, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { SendToProductionDialog } from "@/components/scripts/send-to-production-dialog";
 
@@ -58,6 +59,7 @@ interface Script {
     talentNeeded: string;
     propsRequired: string[];
   } | null;
+  taskCount?: number;
 }
 
 export default function ScriptsPage() {
@@ -145,6 +147,25 @@ export default function ScriptsPage() {
   function handleSendToProduction(script: Script) {
     setSelectedScriptForProduction(script);
     setProductionDialogOpen(true);
+  }
+
+  async function updateScriptStatus(scriptId: string, status: string) {
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      toast.success(`Script ${status.toLowerCase().replace("_", " ")}`);
+      fetchScripts();
+    } catch (error) {
+      toast.error("Failed to update script status");
+    }
   }
 
   return (
@@ -272,8 +293,42 @@ export default function ScriptsPage() {
                 {expandedScript === script.id && (
                   <CardContent className="border-t pt-4">
                     {/* Action Buttons */}
-                    {script.status === "APPROVED" && (
-                      <div className="mb-4">
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {script.status === "DRAFT" && (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateScriptStatus(script.id, "IN_REVIEW");
+                          }}
+                          variant="outline"
+                        >
+                          Submit for Review
+                        </Button>
+                      )}
+                      {script.status === "IN_REVIEW" && (
+                        <>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateScriptStatus(script.id, "APPROVED");
+                            }}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateScriptStatus(script.id, "DRAFT");
+                            }}
+                            variant="outline"
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Request Revision
+                          </Button>
+                        </>
+                      )}
+                      {script.status === "APPROVED" && !script.taskCount && (
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -283,8 +338,16 @@ export default function ScriptsPage() {
                           <Send className="mr-2 h-4 w-4" />
                           Send to Production
                         </Button>
-                      </div>
-                    )}
+                      )}
+                      {(script.status === "IN_PRODUCTION" || (script.status === "APPROVED" && script.taskCount && script.taskCount > 0)) && (
+                        <Link href="/production/tasks" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            View Production Tasks
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
                     <div className="grid md:grid-cols-2 gap-6">
                       {/* Script Content */}
                       <div>

@@ -29,6 +29,9 @@ export async function GET(request: Request) {
         },
         productionReq: true,
         approvedBy: { select: { id: true, name: true } },
+        _count: {
+          select: { tasks: true },
+        },
       },
     });
 
@@ -44,6 +47,7 @@ export async function GET(request: Request) {
         audioType: JSON.parse(s.productionReq.audioType),
         deliverables: JSON.parse(s.productionReq.deliverables),
       } : null,
+      taskCount: s._count.tasks,
     }));
 
     return NextResponse.json(parsed);

@@ -13,13 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -27,11 +20,9 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   ClipboardList,
-  MoreVertical,
   Play,
   CheckCircle,
   AlertCircle,
@@ -42,25 +33,34 @@ import {
   Video,
   Film,
   Eye,
-  RefreshCw,
   Send,
-  ArrowRight,
   ChevronRight,
+  Circle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskWithRelations, TaskStatus, TaskType, TeamMemberWithStats } from "@/types";
-import { TASK_STATUS_CONFIG, TASK_TYPE_CONFIG } from "@/types";
+import { TASK_STATUS_CONFIG } from "@/types";
 
 // Production stages in order
-const STAGES: TaskType[] = ["FILMING", "EDITING", "REVIEW", "DELIVERY"];
+const PIPELINE_STAGES: TaskType[] = ["FILMING", "EDITING", "REVIEW", "DELIVERY"];
 
 const STAGE_CONFIG: Record<TaskType, { label: string; icon: React.ElementType; color: string }> = {
-  FILMING: { label: "Filming", icon: Video, color: "bg-purple-500" },
-  EDITING: { label: "Editing", icon: Film, color: "bg-blue-500" },
-  REVIEW: { label: "Review", icon: Eye, color: "bg-yellow-500" },
-  REVISION: { label: "Revision", icon: RefreshCw, color: "bg-orange-500" },
-  DELIVERY: { label: "Delivery", icon: Send, color: "bg-green-500" },
+  FILMING: { label: "Film", icon: Video, color: "text-purple-600" },
+  EDITING: { label: "Edit", icon: Film, color: "text-blue-600" },
+  REVIEW: { label: "Review", icon: Eye, color: "text-yellow-600" },
+  REVISION: { label: "Revision", icon: Loader2, color: "text-orange-600" },
+  DELIVERY: { label: "Deliver", icon: Send, color: "text-green-600" },
 };
+
+interface ScriptPipeline {
+  scriptId: string;
+  scriptTitle: string;
+  productName: string;
+  tasks: Record<TaskType, TaskWithRelations | undefined>;
+  currentStage: TaskType | null;
+  overallProgress: number;
+}
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskWithRelations[]>([]);
@@ -68,21 +68,17 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchTasks();
     fetchTeamMembers();
-  }, [statusFilter, assigneeFilter]);
+  }, [assigneeFilter]);
 
   async function fetchTasks() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (statusFilter !== "all") params.set("status", statusFilter);
       if (assigneeFilter !== "all") params.set("assigneeId", assigneeFilter);
 
       const res = await fetch(`/api/tasks?${params.toString()}`);
@@ -196,33 +192,57 @@ export default function TasksPage() {
       .slice(0, 2);
   }
 
-  // Group tasks by stage (task type)
-  const tasksByStage = STAGES.reduce((acc, stage) => {
-    acc[stage] = tasks.filter((t) => t.type === stage);
-    return acc;
-  }, {} as Record<TaskType, TaskWithRelations[]>);
+  // Group tasks by script into pipeline view
+  const scriptPipelines: ScriptPipeline[] = (() => {
+    const scriptMap = new Map<string, ScriptPipeline>();
 
-  // Check if previous stage is complete for a script
-  function isPreviousStageComplete(task: TaskWithRelations): boolean {
-    const stageIndex = STAGES.indexOf(task.type as TaskType);
-    if (stageIndex === 0) return true; // First stage, no previous
-
-    const previousStage = STAGES[stageIndex - 1];
-    const previousTask = tasks.find(
-      (t) => t.script.id === task.script.id && t.type === previousStage
-    );
-    return previousTask?.status === "COMPLETED";
-  }
-
-  // Get the current active stage for a script
-  function getScriptCurrentStage(scriptId: string): TaskType | null {
-    for (const stage of STAGES) {
-      const task = tasks.find((t) => t.script.id === scriptId && t.type === stage);
-      if (task && task.status !== "COMPLETED") {
-        return stage as TaskType;
+    tasks.forEach((task) => {
+      const scriptId = task.script.id;
+      if (!scriptMap.has(scriptId)) {
+        scriptMap.set(scriptId, {
+          scriptId,
+          scriptTitle: task.script.concept.title,
+          productName: task.script.concept.product.name,
+          tasks: {} as Record<TaskType, TaskWithRelations | undefined>,
+          currentStage: null,
+          overallProgress: 0,
+        });
       }
-    }
-    return null;
+      const pipeline = scriptMap.get(scriptId)!;
+      pipeline.tasks[task.type as TaskType] = task;
+    });
+
+    // Calculate current stage and progress for each script
+    scriptMap.forEach((pipeline) => {
+      let completedStages = 0;
+      let foundCurrent = false;
+
+      for (const stage of PIPELINE_STAGES) {
+        const task = pipeline.tasks[stage];
+        if (task?.status === "COMPLETED") {
+          completedStages++;
+        } else if (!foundCurrent && task) {
+          pipeline.currentStage = stage;
+          foundCurrent = true;
+        }
+      }
+
+      pipeline.overallProgress = Math.round(
+        (completedStages / PIPELINE_STAGES.length) * 100
+      );
+    });
+
+    return Array.from(scriptMap.values());
+  })();
+
+  // Check if a stage can be started (previous stage is complete)
+  function canStartStage(pipeline: ScriptPipeline, stage: TaskType): boolean {
+    const stageIndex = PIPELINE_STAGES.indexOf(stage);
+    if (stageIndex === 0) return true;
+
+    const previousStage = PIPELINE_STAGES[stageIndex - 1];
+    const previousTask = pipeline.tasks[previousStage];
+    return previousTask?.status === "COMPLETED";
   }
 
   return (
@@ -240,20 +260,6 @@ export default function TasksPage() {
             <span className="text-sm text-muted-foreground">Filter by:</span>
           </div>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {Object.entries(TASK_STATUS_CONFIG).map(([key, config]) => (
-                <SelectItem key={key} value={key}>
-                  {config.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Assignee" />
@@ -270,12 +276,33 @@ export default function TasksPage() {
           </Select>
         </div>
 
-        {/* Stage-based Pipeline */}
+        {/* Pipeline Legend */}
+        <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
+          <span className="font-medium">Legend:</span>
+          <div className="flex items-center gap-1">
+            <Circle className="h-4 w-4 text-gray-300" />
+            <span>Not Started</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Loader2 className="h-4 w-4 text-blue-500" />
+            <span>In Progress</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span>Blocked</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            <span>Done</span>
+          </div>
+        </div>
+
+        {/* Script Pipelines */}
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             Loading...
           </div>
-        ) : tasks.length === 0 ? (
+        ) : scriptPipelines.length === 0 ? (
           <div className="text-center py-12">
             <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground mb-2">No scripts in production</p>
@@ -284,49 +311,137 @@ export default function TasksPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STAGES.map((stage, index) => {
-              const StageIcon = STAGE_CONFIG[stage].icon;
-              const stageTasks = tasksByStage[stage] || [];
-
-              return (
-                <div key={stage} className="space-y-3">
-                  {/* Stage Header */}
-                  <div className="flex items-center gap-2 px-2">
-                    <div className={`h-3 w-3 rounded-full ${STAGE_CONFIG[stage].color}`} />
-                    <StageIcon className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="font-medium">{STAGE_CONFIG[stage].label}</h3>
-                    <Badge variant="secondary">{stageTasks.length}</Badge>
-                    {index < STAGES.length - 1 && (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                    )}
+          <div className="space-y-4">
+            {scriptPipelines.map((pipeline) => (
+              <Card key={pipeline.scriptId} className="overflow-hidden">
+                <CardContent className="p-0">
+                  {/* Script Header */}
+                  <div className="p-4 border-b bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">{pipeline.scriptTitle}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {pipeline.productName}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{pipeline.overallProgress}%</p>
+                          <p className="text-xs text-muted-foreground">Complete</p>
+                        </div>
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 transition-all"
+                            style={{ width: `${pipeline.overallProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Script Cards in this Stage */}
-                  <div className="space-y-3 min-h-[200px]">
-                    {stageTasks.map((task) => {
-                      const canStart = isPreviousStageComplete(task);
-                      const isBlocked = !canStart && task.status === "QUEUED";
+                  {/* Pipeline Stages */}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2">
+                      {PIPELINE_STAGES.map((stage, index) => {
+                        const task = pipeline.tasks[stage];
+                        const StageIcon = STAGE_CONFIG[stage].icon;
+                        const canStart = canStartStage(pipeline, stage);
+                        const isBlocked = !canStart && task?.status === "QUEUED";
 
-                      return (
-                        <ScriptStageCard
-                          key={task.id}
-                          task={task}
-                          canStart={canStart}
-                          isBlocked={isBlocked}
-                          teamMembers={teamMembers}
-                          onOpenDetail={openDetail}
-                          onUpdateStatus={updateStatus}
-                          onUpdateAssignee={updateAssignee}
-                          onDelete={deleteTask}
-                          getInitials={getInitials}
-                        />
-                      );
-                    })}
+                        return (
+                          <div key={stage} className="flex items-center flex-1">
+                            {/* Stage Card */}
+                            <button
+                              onClick={() => task && openDetail(task)}
+                              disabled={!task}
+                              className={`flex-1 p-3 rounded-lg border transition-all ${
+                                task
+                                  ? "hover:border-primary hover:shadow-sm cursor-pointer"
+                                  : "opacity-50 cursor-not-allowed"
+                              } ${
+                                task?.status === "COMPLETED"
+                                  ? "bg-green-50 border-green-200"
+                                  : task?.status === "IN_PROGRESS"
+                                  ? "bg-blue-50 border-blue-200"
+                                  : task?.status === "BLOCKED"
+                                  ? "bg-red-50 border-red-200"
+                                  : "bg-background"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <StageIcon className={`h-4 w-4 ${STAGE_CONFIG[stage].color}`} />
+                                  <span className="font-medium text-sm">
+                                    {STAGE_CONFIG[stage].label}
+                                  </span>
+                                </div>
+                                {/* Status Icon */}
+                                {task?.status === "COMPLETED" && (
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                )}
+                                {task?.status === "IN_PROGRESS" && (
+                                  <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                                )}
+                                {task?.status === "BLOCKED" && (
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
+                                )}
+                                {task?.status === "QUEUED" && !isBlocked && (
+                                  <Circle className="h-4 w-4 text-gray-300" />
+                                )}
+                                {isBlocked && (
+                                  <Clock className="h-4 w-4 text-gray-400" />
+                                )}
+                              </div>
+
+                              {task && (
+                                <div className="space-y-1">
+                                  {/* Assignee */}
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    {task.assignee ? (
+                                      <>
+                                        <Avatar className="h-4 w-4">
+                                          <AvatarFallback className="text-[8px]">
+                                            {getInitials(task.assignee.name)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="truncate">{task.assignee.name}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <User className="h-3 w-3" />
+                                        <span>Unassigned</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {/* Time */}
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    <span>
+                                      {task.actualTime || 0}/{task.estimatedTime}h
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {!task && (
+                                <p className="text-xs text-muted-foreground">
+                                  No task created
+                                </p>
+                              )}
+                            </button>
+
+                            {/* Arrow between stages */}
+                            {index < PIPELINE_STAGES.length - 1 && (
+                              <ChevronRight className="h-5 w-5 text-muted-foreground mx-1 shrink-0" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>
@@ -342,179 +457,12 @@ export default function TasksPage() {
               onUpdateAssignee={updateAssignee}
               onUpdateActualTime={updateActualTime}
               onDelete={deleteTask}
-              onClose={() => setDetailOpen(false)}
               getInitials={getInitials}
-              isPreviousComplete={isPreviousStageComplete(selectedTask)}
             />
           )}
         </SheetContent>
       </Sheet>
     </>
-  );
-}
-
-// Script Card for Stage-based View
-function ScriptStageCard({
-  task,
-  canStart,
-  isBlocked,
-  teamMembers,
-  onOpenDetail,
-  onUpdateStatus,
-  onUpdateAssignee,
-  onDelete,
-  getInitials,
-}: {
-  task: TaskWithRelations;
-  canStart: boolean;
-  isBlocked: boolean;
-  teamMembers: TeamMemberWithStats[];
-  onOpenDetail: (t: TaskWithRelations) => void;
-  onUpdateStatus: (id: string, status: TaskStatus) => void;
-  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
-  onDelete: (id: string) => void;
-  getInitials: (name: string) => string;
-}) {
-  const statusConfig = TASK_STATUS_CONFIG[task.status as TaskStatus];
-
-  return (
-    <Card
-      className={`cursor-pointer hover:shadow-md transition-shadow ${
-        isBlocked ? "opacity-60 border-dashed" : ""
-      } ${task.status === "COMPLETED" ? "bg-green-50/50" : ""}`}
-      onClick={() => onOpenDetail(task)}
-    >
-      <CardContent className="p-4">
-        {/* Script Title */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-sm truncate">
-              {task.script.concept.title}
-            </h4>
-            <p className="text-xs text-muted-foreground truncate">
-              {task.script.concept.product.name}
-            </p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              asChild
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {task.status === "QUEUED" && canStart && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(task.id, "IN_PROGRESS");
-                  }}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Start
-                </DropdownMenuItem>
-              )}
-              {task.status === "IN_PROGRESS" && (
-                <>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUpdateStatus(task.id, "BLOCKED");
-                    }}
-                  >
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    Mark Blocked
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUpdateStatus(task.id, "COMPLETED");
-                    }}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Complete
-                  </DropdownMenuItem>
-                </>
-              )}
-              {task.status === "BLOCKED" && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(task.id, "IN_PROGRESS");
-                  }}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Resume
-                </DropdownMenuItem>
-              )}
-              {task.status === "COMPLETED" && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus(task.id, "IN_PROGRESS");
-                  }}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Reopen
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(task.id);
-                }}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Status Badge */}
-        <div className="flex items-center gap-2 mb-3">
-          <Badge className={`${statusConfig.bgColor} ${statusConfig.color}`}>
-            {isBlocked ? "Waiting" : statusConfig.label}
-          </Badge>
-          {isBlocked && (
-            <span className="text-xs text-muted-foreground">
-              (previous stage incomplete)
-            </span>
-          )}
-        </div>
-
-        {/* Footer: Assignee & Time */}
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            {task.assignee ? (
-              <>
-                <Avatar className="h-5 w-5">
-                  <AvatarFallback className="text-[10px]">
-                    {getInitials(task.assignee.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-muted-foreground truncate max-w-[80px]">
-                  {task.assignee.name}
-                </span>
-              </>
-            ) : (
-              <span className="text-muted-foreground flex items-center gap-1">
-                <User className="h-3 w-3" />
-                Unassigned
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {task.actualTime || 0}/{task.estimatedTime}h
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -526,9 +474,7 @@ function TaskDetailContent({
   onUpdateAssignee,
   onUpdateActualTime,
   onDelete,
-  onClose,
   getInitials,
-  isPreviousComplete,
 }: {
   task: TaskWithRelations;
   teamMembers: TeamMemberWithStats[];
@@ -536,9 +482,7 @@ function TaskDetailContent({
   onUpdateAssignee: (id: string, assigneeId: string | null) => void;
   onUpdateActualTime: (id: string, time: number) => void;
   onDelete: (id: string) => void;
-  onClose: () => void;
   getInitials: (name: string) => string;
-  isPreviousComplete: boolean;
 }) {
   const [actualTime, setActualTime] = useState(task.actualTime || 0);
   const [blockerNotes, setBlockerNotes] = useState(task.blockers || "");
@@ -565,7 +509,7 @@ function TaskDetailContent({
     <>
       <SheetHeader>
         <SheetTitle className="flex items-center gap-2">
-          <StageIcon className="h-5 w-5" />
+          <StageIcon className={`h-5 w-5 ${STAGE_CONFIG[task.type as TaskType]?.color}`} />
           {STAGE_CONFIG[task.type as TaskType]?.label || task.type}
         </SheetTitle>
       </SheetHeader>
@@ -576,7 +520,7 @@ function TaskDetailContent({
           <p className="text-xs text-muted-foreground mb-1">Script</p>
           <p className="font-medium">{task.script.concept.title}</p>
           <p className="text-sm text-muted-foreground">
-            {task.script.concept.product.name} • Version {task.script.version}
+            {task.script.concept.product.name}
           </p>
         </div>
 
@@ -592,11 +536,6 @@ function TaskDetailContent({
           >
             {TASK_STATUS_CONFIG[task.status as TaskStatus].label}
           </Badge>
-          {!isPreviousComplete && task.status === "QUEUED" && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Waiting for previous stage to complete
-            </p>
-          )}
         </div>
 
         {/* Assignee */}
@@ -705,7 +644,7 @@ function TaskDetailContent({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 pt-4 border-t">
-          {task.status === "QUEUED" && isPreviousComplete && (
+          {task.status === "QUEUED" && (
             <Button
               onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
               className="bg-blue-600 hover:bg-blue-700"
@@ -746,7 +685,7 @@ function TaskDetailContent({
               variant="outline"
               onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <Loader2 className="mr-2 h-4 w-4" />
               Reopen
             </Button>
           )}
