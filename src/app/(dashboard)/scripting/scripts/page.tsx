@@ -23,6 +23,9 @@ import { FileText, Plus, Clock, Loader2, Send, CheckCircle, RotateCcw, ExternalL
 import Link from "next/link";
 import { toast } from "sonner";
 import { SendToProductionDialog } from "@/components/scripts/send-to-production-dialog";
+import { EditableScriptSection } from "@/components/scripts/editable-script-section";
+import { AIReviseDialog } from "@/components/scripts/ai-revise-dialog";
+import type { ScriptSection, ScriptContent } from "@/types";
 
 interface Concept {
   id: string;
@@ -41,10 +44,7 @@ interface Script {
   status: string;
   aspectRatios: string[];
   createdAt: string;
-  content: {
-    hook: { spokenText: string };
-    cta: { spokenText: string };
-  };
+  content: ScriptContent;
   concept: {
     id: string;
     title: string;
@@ -73,6 +73,21 @@ export default function ScriptsPage() {
   const [expandedScript, setExpandedScript] = useState<string | null>(null);
   const [productionDialogOpen, setProductionDialogOpen] = useState(false);
   const [selectedScriptForProduction, setSelectedScriptForProduction] = useState<Script | null>(null);
+
+  // Editing state
+  const [editingSection, setEditingSection] = useState<{
+    scriptId: string;
+    sectionKey: string;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // AI Revise state
+  const [aiReviseDialogOpen, setAiReviseDialogOpen] = useState(false);
+  const [aiReviseSection, setAiReviseSection] = useState<{
+    scriptId: string;
+    sectionKey: string;
+    currentContent: ScriptSection;
+  } | null>(null);
 
   useEffect(() => {
     fetchScripts();
@@ -166,6 +181,47 @@ export default function ScriptsPage() {
     } catch (error) {
       toast.error("Failed to update script status");
     }
+  }
+
+  async function handleSaveSection(
+    scriptId: string,
+    sectionKey: string,
+    updatedSection: ScriptSection
+  ) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}/create-version`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updatedSections: { [sectionKey]: updatedSection },
+          editSource: "manual",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save changes");
+      }
+
+      toast.success(`Section saved! New version v${data.newVersion} created.`);
+      setEditingSection(null);
+      fetchScripts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleStartAiRevise(scriptId: string, sectionKey: string, currentContent: ScriptSection) {
+    setAiReviseSection({ scriptId, sectionKey, currentContent });
+    setAiReviseDialogOpen(true);
+  }
+
+  function canEditScript(status: string): boolean {
+    return status === "DRAFT" || status === "IN_REVIEW";
   }
 
   return (
@@ -354,21 +410,28 @@ export default function ScriptsPage() {
                         <h4 className="font-medium mb-3">Script Sections</h4>
                         <div className="space-y-3 text-sm">
                           {Object.entries(script.content).map(([key, section]) => {
-                            const s = section as { spokenText?: string; startTime?: number; endTime?: number };
+                            const s = section as ScriptSection;
+                            if (!s || typeof s !== 'object') return null;
                             return (
-                              <div key={key} className="border rounded p-3">
-                                <div className="flex justify-between items-center mb-1">
-                                  <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                  {s.startTime !== undefined && s.endTime !== undefined && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {s.startTime}s - {s.endTime}s
-                                    </span>
-                                  )}
-                                </div>
-                                {s.spokenText && (
-                                  <p className="text-muted-foreground">{s.spokenText}</p>
-                                )}
-                              </div>
+                              <EditableScriptSection
+                                key={key}
+                                sectionKey={key}
+                                section={s}
+                                isEditing={
+                                  editingSection?.scriptId === script.id &&
+                                  editingSection?.sectionKey === key
+                                }
+                                onStartEdit={() =>
+                                  setEditingSection({ scriptId: script.id, sectionKey: key })
+                                }
+                                onCancelEdit={() => setEditingSection(null)}
+                                onSave={(updatedSection) =>
+                                  handleSaveSection(script.id, key, updatedSection)
+                                }
+                                onAiRevise={() => handleStartAiRevise(script.id, key, s)}
+                                saving={saving}
+                                disabled={!canEditScript(script.status)}
+                              />
                             );
                           })}
                         </div>
@@ -420,6 +483,18 @@ export default function ScriptsPage() {
           onOpenChange={setProductionDialogOpen}
           scriptId={selectedScriptForProduction.id}
           scriptTitle={selectedScriptForProduction.concept.title}
+          onSuccess={fetchScripts}
+        />
+      )}
+
+      {/* AI Revise Dialog */}
+      {aiReviseSection && (
+        <AIReviseDialog
+          open={aiReviseDialogOpen}
+          onOpenChange={setAiReviseDialogOpen}
+          scriptId={aiReviseSection.scriptId}
+          sectionKey={aiReviseSection.sectionKey}
+          currentContent={aiReviseSection.currentContent}
           onSuccess={fetchScripts}
         />
       )}
